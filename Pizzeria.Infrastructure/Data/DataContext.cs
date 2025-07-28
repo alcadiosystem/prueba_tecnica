@@ -1,0 +1,45 @@
+using Microsoft.EntityFrameworkCore;
+using Pizzeria.Domain.Entities;
+
+namespace Pizzeria.Infrastructure.Data;
+
+public class DataContext : DbContext
+{
+    public DataContext(DbContextOptions<DataContext> options) : base(options) {}
+    public DbSet<Usuario> Usuarios { get; set; }
+    public DbSet<Producto> Productos { get; set; }
+    public DbSet<Ventas> Ventas { get; set; }
+    public DbSet<DetalleVenta> DetalleVentas { get; set; }
+
+    override protected void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.Entity<Usuario>().HasIndex(usuario => usuario.DNI).IsUnique();
+        modelBuilder.Entity<Producto>().HasIndex(producto => producto.Nombre).IsUnique();
+
+        // Relación 1 Venta → muchos DetallesVenta
+            modelBuilder.Entity<DetalleVenta>()
+                .HasOne(d => d.Ventas)
+                .WithMany(v => v.DetalleVentas)
+                .HasForeignKey(d => d.IdVentas);
+
+            // Relación 1 Producto → muchos DetallesVenta
+            modelBuilder.Entity<DetalleVenta>()
+                .HasOne(d => d.Producto)
+                .WithMany(p => p.DetalleVentas)
+                .HasForeignKey(d => d.IdProducto);
+
+            DisableCascadingDelete(modelBuilder);
+    }
+
+    //Permite quitar el eliminado en cascada
+    private void DisableCascadingDelete(ModelBuilder modelBuilder)
+    {
+        var relationships = modelBuilder.Model.GetEntityTypes().SelectMany(t => t.GetForeignKeys());
+        foreach (var relationship in relationships)
+        {
+            relationship.DeleteBehavior = DeleteBehavior.Restrict;
+        }
+    }
+}
