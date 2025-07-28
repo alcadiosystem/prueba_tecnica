@@ -29,6 +29,9 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 
+builder.Services.AddScoped<IDetalleVentaRepository, DetalleVentaRepository>();
+builder.Services.AddScoped<IDetalleVentaService, DetalleVentaService>();
+
 
 var app = builder.Build();
 

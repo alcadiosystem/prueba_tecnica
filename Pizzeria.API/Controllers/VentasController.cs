@@ -10,10 +10,14 @@ namespace Pizzeria.API.Controllers;
 public class VentasController : ControllerBase
 {
     private readonly IVentaService _ventasService;
+    private readonly IDetalleVentaService _detalleVentaService;
 
-    public VentasController(IVentaService ventasService)
+    public VentasController(
+        IVentaService ventasService,
+        IDetalleVentaService detalleVentaService)
     {
         _ventasService = ventasService;
+        _detalleVentaService = detalleVentaService;
     }
 
     [HttpGet]
@@ -25,7 +29,23 @@ public class VentasController : ControllerBase
         [FromQuery] int pageSize = 10)
     {
         var result = await _ventasService.GetVentasAsync(fechaInicio, fechaFin, search, pageNumber, pageSize);
-        return Ok(result);
+
+        var lista = result.Datos.Select(v => new
+        {
+            Id = v.Id,
+            UsuarioId = v.IdUsuario,
+            NombreUsuario = v.Usuario.Nombre,
+            Fecha = v.Fecha,
+            Total = v.Total
+        });
+
+        return Ok(new
+        {
+            result.TotalRegistros,
+            result.PaginaActual,
+            result.TamanoPagina,
+            Datos = lista
+        });
     }
 
     [HttpGet("{id}")]
@@ -82,5 +102,69 @@ public class VentasController : ControllerBase
         if (!result) return NotFound();
 
         return Ok(new { message = $"La venta con ID {id} fue eliminada correctamente." });
+    }
+
+    // ---------------- DETALLES DE VENTA ----------------
+
+    // GET /api/ventas/{ventaId}/detalles
+    [HttpGet("{ventaId}/detalles")]
+    public async Task<IActionResult> GetDetalles(int ventaId)
+    {
+        var detalles = await _detalleVentaService.GetDetallesByVentaIdAsync(ventaId);
+        return Ok(detalles.Select(d => new
+        {
+            Id = d.Id,
+            ProductoId = d.IdProducto,
+            Cantidad = d.Cantidad,
+            PrecioUnitario = d.PrecioUnitario,
+            Total = d.Total
+        }));
+    }
+
+    // GET /api/ventas/{ventaId}/detalles/{id}
+    [HttpGet("{ventaId}/detalles/{id}")]
+    public async Task<IActionResult> GetDetalle(int ventaId, int id)
+    {
+        var detalle = await _detalleVentaService.GetDetalleByIdAsync(ventaId, id);
+        if (detalle == null)
+            return NotFound(new { message = "Detalle no encontrado" });
+
+        return Ok(new
+        {
+            Id = detalle.Id,
+            ProductoId = detalle.IdProducto,
+            Cantidad = detalle.Cantidad,
+            PrecioUnitario = detalle.PrecioUnitario,
+            Total = detalle.Total
+        });
+    }
+
+    // PUT /api/ventas/{ventaId}/detalles/{id}
+    [HttpPut("{ventaId}/detalles/{id}")]
+    public async Task<IActionResult> UpdateDetalle(int ventaId, int id, [FromBody] DetalleVenta detalleVenta)
+    {
+        if (id != detalleVenta.Id || ventaId != detalleVenta.IdVentas)
+            return BadRequest(new { message = "IDs de URL y cuerpo no coinciden" });
+
+        var updated = await _detalleVentaService.UpdateDetalleAsync(ventaId, id, detalleVenta);
+
+        return Ok(new
+        {
+            Id = updated.Id,
+            ProductoId = updated.IdProducto,
+            Cantidad = updated.Cantidad,
+            PrecioUnitario = updated.PrecioUnitario,
+            Total = updated.Total
+        });
+    }
+
+    [HttpDelete("{ventaId}/detalles/{id}")]
+    public async Task<IActionResult> DeleteDetalleVenta(int ventaId, int id)
+    {
+        var eliminado = await _detalleVentaService.DeleteDetalleVentaAsync(ventaId, id);
+        if (!eliminado)
+            return NotFound(new { message = $"No se encontró el detalle con ID {id} para la venta {ventaId}." });
+
+        return NoContent();
     }
 }
